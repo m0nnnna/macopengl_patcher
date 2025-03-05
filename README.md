@@ -1,6 +1,6 @@
 Hello!
 
-I have setupa python script that is able to patch electron apps on macOS devices running Open Legacy Patcher.
+I have setup a python script that is able to patch electron apps on macOS devices running Open Core Legacy Patcher.
 
 You'll notice this scripts looks for some applications by default. I have only tested this with two.
 
