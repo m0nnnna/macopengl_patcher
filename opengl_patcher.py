@@ -5,8 +5,6 @@ import sys
 import subprocess
 from datetime import datetime
 
-# Configurable app list: {path: {name, flags, executable, method}}
-# method: "patch" (in-bundle wrapper) or "script" (external script + wrapper app)
 APPS_TO_PATCH = {
     "/Applications/Google Chrome.app": {
         "name": "Google Chrome",
@@ -18,13 +16,13 @@ APPS_TO_PATCH = {
         "name": "Discord",
         "flags": ["--use-gl=desktop"],
         "executable": "Contents/MacOS/Discord",
-        "method": "patch"  # Worked with old method
+        "method": "patch"
     },
     "/Applications/Spotify.app": {
         "name": "Spotify",
         "flags": ["--use-gl=desktop"],
         "executable": "Contents/MacOS/Spotify",
-        "method": "script"  # Requires external script
+        "method": "script"
     },
     "/Applications/Visual Studio Code.app": {
         "name": "Visual Studio Code",
@@ -38,18 +36,27 @@ APPS_TO_PATCH = {
         "executable": "Contents/MacOS/Slack",
         "method": "patch"
     },
-    "/Applications/Microsoft Teams.app": {
-        "name": "Microsoft Teams",
-        "flags": ["--use-gl=desktop"],
-        "executable": "Contents/MacOS/Microsoft Teams",
-        "method": "patch"
-    },
     "/Applications/OBS.app": {
         "name": "OBS Studio",
         "flags": ["--use-gl=desktop"],
         "executable": "Contents/MacOS/OBS",
         "method": "patch"
-    }
+    },
+    # Special Section for Microsoft Teams - Choose ONE method below
+    # Option 1: Patch Method (like Discord, in-bundle)
+    "/Applications/Microsoft Teams.app": {
+        "name": "Microsoft Teams",
+        "flags": ["--enable-gpu-rasterization", "--disable-accelerated-video-decode"],
+        "executable": "Contents/MacOS/MSTeams",
+        "method": "patch"
+    },
+    # Option 2: Script Method (like Spotify, external wrapper)
+    # "/Applications/Microsoft Teams.app": {
+    #     "name": "Microsoft Teams",
+    #     "flags": ["--enable-gpu-rasterization", "--disable-accelerated-video-decode"],
+    #     "executable": "Contents/MacOS/MSTeams",
+    #     "method": "script"
+    # },
 }
 
 INSTALL_DIR = "/usr/local/bin"
@@ -99,14 +106,14 @@ def patch_in_bundle(app_path, app_info):
 
     original_executable = f"{executable_path}.orig"
     if not os.path.exists(original_executable):
-        if not backup_file(executable_path):
+        if not backup_file(executable_path):  # Fixed variable name
             return False
         shutil.move(executable_path, original_executable)
     else:
         print(f"Original executable already backed up at {original_executable}.")
 
     wrapper_script = f"""#!/bin/bash
-# Launch {app_name} with OpenGL flags
+# Launch {app_name} with flags
 echo "$(date): Launching {app_name} with flags: {' '.join(flags)}" >> ~/Library/Logs/{app_name}_wrapper.log
 exec "{original_executable}" {' '.join(f'"{flag}"' for flag in flags)} "$@"
 """
@@ -149,7 +156,7 @@ def create_script_and_wrapper(app_path, app_info):
 
     # Create the launch script
     script_content = f"""#!/bin/bash
-# Launch {app_name} with OpenGL flags
+# Launch {app_name} with flags
 echo "$(date): Launching {app_name} with flags: {' '.join(flags)}" >> ~/Library/Logs/{app_name}_launch.log
 exec "{executable_path}" {' '.join(f'"{flag}"' for flag in flags)} "$@"
 """
@@ -223,20 +230,20 @@ def reset_launch_services():
         print(f"Failed to reset Launch Services: {e}")
 
 def main():
-    print("Patching applications for OpenGL rendering (hybrid method)...")
+    print("Patching applications for GPU rendering (hybrid method)...")
     if not os.path.exists(INSTALL_DIR):
         os.makedirs(INSTALL_DIR, exist_ok=True)
     if not os.path.exists(WRAPPER_DIR):
         os.makedirs(WRAPPER_DIR, exist_ok=True)
 
     for app_path, app_info in APPS_TO_PATCH.items():
-        method = app_info.get("method", "patch")  # Default to patch if unspecified
+        method = app_info.get("method", "patch")
         if method == "patch":
             success = patch_in_bundle(app_path, app_info)
             if success:
                 print(f"{app_info['name']} patched successfully (in-bundle). Launch normally.")
             else:
-                print(f"Fallback: Could not patch {app_info['name']} in-bundle.")
+                print(f"Failed to patch {app_info['name']} in-bundle. Consider switching to 'script' method.")
         elif method == "script":
             success = create_script_and_wrapper(app_path, app_info)
             if success:
@@ -245,7 +252,7 @@ def main():
                 print(f"Failed to set up {app_info['name']} with external script.")
 
     reset_launch_services()
-    print("Setup complete. For 'patch' apps, launch normally. For 'script' apps, use '~/Applications/<App Name> OpenGL.app' or '<app_name>_opengl.sh'.")
+    print("Setup complete. For 'patch' apps, launch normally. For 'script' apps, use '~/Applications/<App Name> OpenGL.app'.")
 
 if __name__ == "__main__":
     main()
